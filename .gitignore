@@ -128,3 +128,4 @@ logs/
 *.out
 *.synctex.gz
 *.aux
+*.blg
