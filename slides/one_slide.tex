@@ -1,0 +1,118 @@
+\documentclass[10pt,pdf,hyperref={unicode}]{beamer}
+
+\mode<presentation>
+{
+\usetheme{boxes}
+\beamertemplatenavigationsymbolsempty
+
+\setbeamertemplate{footline}[page number]
+\setbeamersize{text margin left=0.5em, text margin right=0.5em}
+}
+
+\usepackage[utf8]{inputenc}
+\usepackage[english, russian]{babel}
+\usepackage{bm}
+\usepackage{multirow}
+\usepackage{ragged2e}
+\usepackage{indentfirst}
+\usepackage{multicol}
+\usepackage{subfig}
+\usepackage{amsmath,amssymb}
+\usepackage{enumerate}
+\usepackage{mathtools}
+\usepackage{comment}
+\usepackage{multicol}
+
+\usepackage[all]{xy}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows}
+
+\tikzstyle{name} = [parameters]
+\definecolor{name}{rgb}{0.5,0.5,0.5}
+
+\usepackage{caption}
+\captionsetup{skip=0pt,belowskip=0pt}
+
+\newtheorem{rustheorem}{Теорема}
+\newtheorem{russtatement}{Утверждение}
+\newtheorem{rusdefinition}{Определение}
+
+% colors
+\definecolor{darkgreen}{rgb}{0.0, 0.2, 0.13}
+\definecolor{darkcyan}{rgb}{0.0, 0.55, 0.55}
+
+\AtBeginEnvironment{figure}{\setcounter{subfigure}{0}}
+
+\captionsetup[subfloat]{labelformat=empty}
+
+%----------------------------------------------------------------------------------------------------------
+
+\title[Пример слайдов по работе]{Пример слайдов по работе \\ курса}
+\author{И.\,О.\,Фамилия}
+
+\institute[]{Московский физико-технический институт}
+\date[2022]{\small 10\;февраля\;2022\,г.}
+
+%---------------------------------------------------------------------------------------------------------
+\begin{document}
+
+
+%---------------------------------------------------------------------------------------------------------
+\section{Ансамблирование}
+\begin{frame}{Ансамблирование}
+    Рассматриваем ошибку ансамбля $\mathcal{A}(x) = \frac{1}{k} \sum_{i}^{k} A_i(x)$
+    \begin{align*}
+        L(\mathcal{A}) &= \underbrace{\mathbb{E}_{x, y} \Bigl[\bigl(y - \mathbb{E}[y | x] \bigr)^2\Bigr]}_{\text{Шум}}+
+        \underbrace{\mathbb{E}_{x, y} \Bigl[
+            \bigl(
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+                -
+                \mathbb{E}[y | x]
+            \bigr)^2
+        \Bigr]}_{\text{Смещение}} \\
+        &+\underbrace{\frac{1}{k}
+        \mathbb{E}_{x, y} \Bigl[
+            \mathbb{E}_{X} \Bigl[
+                \Bigl(
+                    A_i(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_i(X)(x)
+                    \bigr]
+                \Bigr)^2
+            \Bigr]
+        \Bigr]}_{\text{Дисперсия} \ A_i}
+        \\
+        &+
+        \underbrace{\frac{k(k-1)}{k^2}
+        \mathbb{E}_{x, y} \Bigl[
+            \mathbb{E}_{X} \Bigl[
+                \Bigl(
+                    A_i(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_i(X)(x)
+                    \bigr]
+                \Bigr) 
+                \Bigl(   
+                    A_j(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_j(X)(x)
+                    \bigr]
+                \Bigr)
+            \Bigr]
+        \Bigr]}_{\text{Ковариация}\  A_i, A_j}
+    \end{align*}
+    Оптимизируем критерий на выборке $(x_i, y_i)_{i=1}^m$:
+    \begin{align*}
+        (1-\mu)\underbrace{\frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (y_j - A_i(x_j))^2}_{\text{MSE}} +
+        \mu\underbrace{\frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (\mathcal{A}(x_j) - A_i(x_j))^2}_{\text{Дисперсия пргнозов}}
+    \end{align*}
+\end{frame}
+
+
+\end{document} 
