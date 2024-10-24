@@ -2,7 +2,8 @@
 
 \mode<presentation>
 {
-\usetheme{boxes}
+\usetheme{Madrid}
+\usecolortheme{dolphin}
 \beamertemplatenavigationsymbolsempty
 
 \setbeamertemplate{footline}[page number]
@@ -59,11 +60,11 @@
 
 
 %---------------------------------------------------------------------------------------------------------
-\section{Ансамблирование}
-\begin{frame}{Ансамблирование}
+% \section{Ансамблирование}
+\begin{frame}{One Slide Talk}
     Рассматриваем ошибку ансамбля $\mathcal{A}(x) = \frac{1}{k} \sum_{i}^{k} A_i(x)$
-    \begin{align*}
-        L(\mathcal{A}) &= \underbrace{\mathbb{E}_{x, y} \Bigl[\bigl(y - \mathbb{E}[y | x] \bigr)^2\Bigr]}_{\text{Шум}}+
+        \begin{align*}
+        &L(\mathcal{A}) = \underbrace{\mathbb{E}_{x, y} \Bigl[\bigl(y - \mathbb{E}[y | x] \bigr)^2\Bigr]}_{\text{Шум}}+
         \underbrace{\mathbb{E}_{x, y} \Bigl[
             \bigl(
                 \mathbb{E}_{X} \bigl[
@@ -107,6 +108,8 @@
             \Bigr]
         \Bigr]}_{\text{Ковариация}\  A_i, A_j}
     \end{align*}
+    Хотим минимизировать ковариацию.
+
     Оптимизируем критерий на выборке $(x_i, y_i)_{i=1}^m$:
     \begin{align*}
         (1-\mu)\underbrace{\frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (y_j - A_i(x_j))^2}_{\text{MSE}} +
