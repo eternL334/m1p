@@ -14,6 +14,29 @@
 \usepackage{natbib}
 \usepackage{doi}
 
+\usepackage{url}
+\usepackage{wrapfig,booktabs}
+\usepackage{titlesec}
+\usepackage[inkscapeformat=png]{svg}
+\usepackage{adjustbox}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{multirow}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsfonts}
+\usepackage{amssymb, amsmath, mathrsfs, amsthm}
+\usepackage{bbm}
+\usepackage{bm}
+\usepackage{color}
+\usepackage{csvsimple}
+\usepackage{fancyvrb}
+\usepackage{indentfirst}
+\usepackage{listings}
+\usepackage{mathtools}
+\usepackage{pgfplots}
 
 
 \title{Разработка эффективной реализации методов, основанных на поиске оптимального баланса между дивергенцией и точностью аппроксимации}
@@ -59,6 +82,212 @@ pdfkeywords={регрессия, коллективные методы, бэгг
 
 \section{Постановка задачи}
 Дана выборка $S={(X_1, y_1), \dots, (X_m, y_m)}$, где $X_i$ --- вектор признакового описания объекта, $y_i$ --- метка объекта. Рассматривается задача регресии: $X_i~\in~\mathbb{R}^n, \  y_i \in \mathbb{R}$. Требуется построить ансамбль базовых алгоритмов $A_1(X), \dots, A_k(X)$, предсказывающих значения метки по вектору признаков.
+
+\section{Дисперсия ансамбля}
+Рассмотрим известное разложение среднеквадратичного риска модели $\mu(x)$ (bias-variance decomposition):
+\begin{equation*}
+  L(\mu) = N(\mu) + B(\mu) + V(\mu),
+\end{equation*}
+где
+\allowdisplaybreaks
+\begin{align*}
+  N(\mu) &= \mathbb{E}_{x, y} \Bigl[\bigl(y - \mathbb{E}[y | x] \bigr)^2\Bigr] \text{ --- шум,} \\
+  B(\mu) &= \mathbb{E}_{x} \Bigl[
+            \bigl(
+                \mathbb{E}_{X} \bigl[ \mu(X) \bigr]
+                -
+                \mathbb{E}[y | x]
+            \bigr)^2
+        \Bigr] \text{ --- смещение,} \\
+  V(\mu) &= \mathbb{E}_{X} \Bigl[
+                \bigl(
+                    \mu(X)
+                    -
+                    \mathbb{E}_{X} \bigl[ \mu(X) \bigr]
+                \bigr)^2
+            \Bigr] \text{ --- разброс.}
+\end{align*}
+
+Проанализируем это разложение в случае ансамбля базовых алгоритмов $\mu(X) = \frac{1}{k} \sum_{i=1}^{k} A_i(X)$. Шум является свойством выборки и не зависит от алгоритма. Выражения для смещения принимает вид:
+
+\begin{align*}
+    B(\mu) &= \mathbb{E}_{x, y} \Bigl[
+        \Bigl(
+            \mathbb{E}_{X} \Bigl[
+                \frac{1}{k}
+                \sum_{i = 1}^{k}
+                    A_i(X)(x)
+            \Bigr]
+            -
+            \mathbb{E}[y | x]
+        \Bigr)^2
+    \Bigr]
+    =\\
+    &=
+    \mathbb{E}_{x, y} \Bigl[
+        \Bigl(
+                \frac{1}{k}
+                \sum_{i = 1}^{k}
+                    \mathbb{E}_X[ A_i(X)(x) ]
+            -
+            \mathbb{E}[y | x]
+        \Bigr)^2
+    \Bigr]
+    =\\
+    &=
+    \mathbb{E}_{x, y} \Bigl[
+        \bigl(
+            \mathbb{E}_{X} \bigl[
+                A_i(X)(x)
+            \bigr]
+            -
+            \mathbb{E}[y | x]
+        \bigr)^2
+    \Bigr].
+\end{align*}
+Таким образом, ансамблирование не изменяет смещенности относительно базового алгоритма.
+
+Запишем выражения для разброса ансамбля:
+\begin{align*}
+  V(\mu) &= \mathbb{E}_{x, y} \Bigl[
+    \mathbb{E}_{X} \Bigl[
+      \Bigl(
+        \frac{1}{k}
+        \sum_{i = 1}^{k}
+        A_i(X)(x)
+        -
+        \mathbb{E}_{X} \Bigl[
+          \frac{1}{k}
+          \sum_{i = 1}^{k}
+          A_i(X)(x)
+          \Bigr]
+          \Bigr)^2
+          \Bigr]
+          \Bigr] \\
+    &= \mathbb{E}_{x, y} \Bigl[
+    \mathbb{E}_{X} \Bigl[
+    \frac{1}{k^2}
+    \Bigl(
+        \sum_{i = 1}^{k} \Bigl[
+                A_i(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+        \Bigr]
+    \Bigr)^2\Bigr]
+          \Bigr]
+    =\\
+    &= \mathbb{E}_{x, y} \Bigl[
+    \mathbb{E}_{X} \Bigl[
+    \frac{1}{k^2}
+    \sum_{i = 1}^{k} \Bigl(
+        A_i(X)(x)
+        -
+        \mathbb{E}_{X} \bigl[
+            A_i(X)(x)
+        \bigr]
+    \Bigr)^2 +\\
+    &\text{\hspace{0.5cm}}+
+    \frac{1}{k^2}
+    \sum_{i \neq j} \Bigl(
+        A_i(X)(x)
+        -
+        \mathbb{E}_{X} \bigl[
+            A_i(X)(x)
+        \bigr]
+    \Bigr)
+    \Bigl(
+        A_j(X)(x)
+        -
+        \mathbb{E}_{X} \bigl[
+            A_j(X)(x)
+        \bigr]
+    \Bigr)\Bigr]
+          \Bigr] \\
+    &=
+    \frac{1}{k^2}
+    \mathbb{E}_{x, y} \Bigl[
+        \mathbb{E}_{X} \Bigl[
+            \sum_{i = 1}^{k} \Bigl(
+                A_i(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+            \Bigr)^2
+        \Bigr]
+    \Bigr]
+    +\\
+    &\text{\hspace{0.5cm}}+
+    \frac{1}{k^2}
+    \mathbb{E}_{x, y} \Bigl[
+        \mathbb{E}_{X} \Bigl[
+            \sum_{i \neq j} \Bigl(
+                A_i(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+            \Bigr) 
+            \Bigl(
+                A_j(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_j(X)(x)
+                \bigr]
+            \Bigr)
+        \Bigr]
+    \Bigr]
+    \\
+    &=
+    \frac{1}{k}
+    \mathbb{E}_{x, y} \Bigl[
+        \mathbb{E}_{X} \Bigl[
+            \Bigl(
+                A_i(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+            \Bigr)^2
+        \Bigr]
+    \Bigr]
+    +\\
+    &\text{\hspace{0.5cm}}+
+    \frac{k(k-1)}{k^2}
+    \mathbb{E}_{x, y} \Bigl[
+        \mathbb{E}_{X} \Bigl[
+            \Bigl(
+                A_i(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+            \Bigr)
+            \Bigl(   
+                A_j(X)(x)
+                -
+                \mathbb{E}_{X} \bigl[
+                    A_j(X)(x)
+                \bigr]
+            \Bigr)
+        \Bigr]
+    \Bigr]
+\end{align*}
+В данном разложении первое слагаемое~--- это дисперсия одного базового алгоритма,
+деленная на длину композиции~$k$.
+Второе~--- ковариация между двумя базовыми алгоритмами.
+При малой коррелляции алгоритмов происходит существенное снижение разброса ансамбля по сравнению с базовым алгоритмом.
+
+\section{Случайный лес} \label{sec:random_forest}
+В качестве базового алгоритма в случайных лесах используются решающие деревья. Они имеют достаточную сложность, и, как следствие, низкую смещенность (при неограниченной глубине дерево может идеально подстроиться под выборку), но переобучаются и имеют высокий разброс, который можно уменьшить с помощью ансамблирования. В случайных лесах коррелляция между деревьями понижается двумя способами:
+\begin{itemize}
+  \item Бэггинг. Каждый алгоритм обучается на случайной подвыборке, сгенерированной из выборки с помощью бутстрэпа, т.е. выбираются $m$ объектов с возвращениями. Таким образом, в одной выборке некоторые объекты встретятся несколько раз, а некоторые — ни разу.
+  \item Рандомизация признаков. При построении очередного дерева в каждой вершине выбор наилучшего признака для разбиения происходит не из всех возможных признаков, а из случайно выбранной подвыборки. 
+\end{itemize}
+Так удается добавить случайность в построение деревьев и уменьшить коррелированность их прогнозов.
+
 
 % \section{Introduction}
 % \lipsum[2]
