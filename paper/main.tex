@@ -1,9 +1,11 @@
 \documentclass{article}
 \usepackage{arxiv}
 
+\usepackage[T2A]{fontenc}
+% \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[english, russian]{babel}
-\usepackage[T1]{fontenc}
+
 \usepackage{url}
 \usepackage{booktabs}
 \usepackage{amsfonts}
@@ -14,8 +16,7 @@
 \usepackage{natbib}
 \usepackage{doi}
 
-\usepackage{url}
-\usepackage{wrapfig,booktabs}
+\usepackage{wrapfig}
 \usepackage{titlesec}
 \usepackage[inkscapeformat=png]{svg}
 \usepackage{adjustbox}
@@ -33,10 +34,15 @@
 \usepackage{color}
 \usepackage{csvsimple}
 \usepackage{fancyvrb}
+% \usepackage[hidelinks]{hyperref}
 \usepackage{indentfirst}
 \usepackage{listings}
 \usepackage{mathtools}
 \usepackage{pgfplots}
+
+\usepackage{algorithm}
+\usepackage{algcompatible}
+\usepackage[nottoc]{tocbibind}
 
 
 \title{Разработка эффективной реализации методов, основанных на поиске оптимального баланса между дивергенцией и точностью аппроксимации}
@@ -288,6 +294,109 @@ pdfkeywords={регрессия, коллективные методы, бэгг
 \end{itemize}
 Так удается добавить случайность в построение деревьев и уменьшить коррелированность их прогнозов.
 
+\section{Предлагаемый метод}
+
+Обозначим $L_k(X) = \frac{1}{k}\sum_{i = 1}^{k} A_i(X)$, $Q_k(X) = \frac{1}{k}\sum_{i = 1}^{k} A_i^2(X)$. Введем критерий $\Phi_E$:
+\begin{equation*}
+  \Phi_E(A_1(X), \dots, A_k(X)) = \frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (y_j - A_i(X_j))^2,
+\end{equation*}
+являющийся среднеквадратичной ошибкой алгоритма, и $\Phi_V$
+\begin{equation*}
+  \Phi_V(A_1(X), \dots, A_k(X)) = \frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (L_k(X_j) - A_i(X_j))^2,
+\end{equation*}
+представляющий собой дисперсию прогнозов вычисляемых алгоритмов.
+
+При построении ансамбля предлагается предлагается явно минимизировать $\Phi_E$ и максимизировать $\Phi_V$. Данная задача может быть сведена к минимизации $\Phi_G$:
+\begin{equation*}
+  \Phi_G = (1 - \mu) \Phi_E - \mu \Phi_V,
+\end{equation*}
+где $\mu \in [0, 1]$ является гиперпараметром, определяющим соотношение точности и разнородности прогнозов отдельных деревьев. 
+
+Поскольку каждое дерево в ансамбле строится отдельно от других, необходимо получить критерий для построения очередного дерева. Обозначим через $D_E^k$ и $D_V^k$ изменение функционалов $\Phi_E$ и $\Phi_V$ при включении в ансамбль дополнительного алгоритма $A_{k+1}$. 
+\begin{align*}
+  D_E^k &= \Phi_E(A_1(X), ..., A_{k+1}(X)) - \Phi_E(A_1(X), \dots, A_k(X)) \\
+  &= \frac{1}{k+1} \left( \Phi_E(A_1(X), \dots, A_k(X)) \cdot k + \frac{1}{m} \sum_{i=1}^{m}(y_j - A_{k+1}(X_j))^2  \right) 
+  - \Phi_E(A_1(X), \dots, A_k(X)) \\
+  &= \frac{1}{m(k+1)}\sum_{j=1}^{m}(y_j - A_{k+1}(X_j))^2 - \frac{1}{k+1}\Phi_E(A_1(X), \dots, A_k(X)) \\
+  &= \frac{1}{m(k+1)}\sum_{j=1}^{m}(y_j - A_{k+1}(X_j))^2 - C_E,
+\end{align*}
+где $C_E$ не зависит от $A_{k+1}(X)$.
+
+Для расчета $D_V^k$ воспользуемся известным соотношением для выборочной дисперсии:
+\begin{align*}
+  \sum_{j=1}^{m} \sum_{i=1}^{k} (L_k(X_j) - A_i(X_j))^2
+  &= \sum_{j=1}^{m} \left(\frac{1}{k} \sum_{i=1}^{k} A_i^2(X_j) -\left(\frac{1}{k} \sum_{i=1}^{k} A_i(X_j) \right)^2  \right) 
+  = \sum_{j=1}^{m} (Q_k(X_j) - L_k^2(X_j))
+\end{align*}
+
+Тогда выражение для $D_V^K$ принимает вид:
+% \allowdisplaybreaks
+\begin{align*}
+  D_V^K &= \Phi_V(A_1(X), \dots, A_{k+1}(X))-\Phi_V(A_1(X), \dots, A_k(X)) \\
+  &= \frac{1}{m} \sum_{j=1}^{m} (Q_{k+1}(X_j) - L_{k+1}^2(X_j)) - \frac{1}{m} \sum_{j=1}^{m} (Q_k(X_j) - L_k^2(X_j)) \\
+  &= \frac{1}{m} \sum_{j=1}^{m} (\frac{1}{k+1}\sum_{i=1}^{k+1} A_{i}^2(X_j) - \frac{1}{k}\sum_{i=1}^{k} A_{i}^2(X_j) 
+  - (k L_k(X_j) + A_{k+1}(X_j))^2 + L_k^2(X_j)) \\
+  &= \frac{1}{m(k+1)} \sum_{j=1}^{m} (A_{k+1}^2(X_j) + \sum_{i=1}^{k} A_{i}^2(X_j) - \frac{k+1}{k} \sum_{i=1}^{k} A_{i}^2(X_j) \\
+  &- \frac{k^2}{k+1}L_k^2(X_j) - \frac{2k}{k+1}L_k(X_j)A_{k+1}(X_j) -\frac{1}{k+1}A_{k+1}^2(X_j) + (k+1)L_k^2(X_j)) \\
+  &= \frac{1}{m(k+1)} \sum_{j=1}^{m} (\frac{k}{k+1} A_{k+1}^2(X_j) - Q_k(X_j) - \frac{2k}{k+1}L_k(X_j)A_{k+1}(X_j)
+  - \frac{k^2}{k+1}L_k^2(X_j)   + (k+1)L_k^2(X_j)) \\
+  &= \frac{k}{m(k+1)^2} \sum_{j=1}^{m} (A_{k+1}^2(X_j) - 2L_k(X_j)A_{k+1}(X_j)) + C_V,
+\end{align*}
+где $C_V$ не зависит от $A_{k+1}(X)$.
+
+Объединяя эти выражения, получаем функционал, который необходимо минимизировать при построении очередного дерева $A_{k+1}(X)$:
+\begin{align} \label{eq:error}
+  D_G^k &= (1 - \mu) D_E^k - \mu D_V^k = \notag \\ 
+  &= \frac{1-\mu}{m(k+1)} \sum_{j=1}^{m}(y_j - A_{k+1}(X_j))^2 
+  -\frac{\mu k}{m(k+1)^2} \sum_{j=1}^{m} (A_{k+1}^2(X_j) - 2L_k(X_j)A_{k+1}(X_j)) + C_G, 
+\end{align} 
+где $C_G$ не зависит от $A_{k+1}(X)$.
+
+Теперь рассмотрим вопрос оптимального значения в листе дерева $A_{k+1}(X)$. Пусть в лист попали объекты $(X_{n_1}, y_{n_1}), \dots, (X_{n_p}, y_{n_p})$. В листе алгоритм предсказывает одно значениe для всех объектов, попавших в этот лист: $A_{k+1}(X_{n_j}) \equiv \tilde{A}, \ j = \overline{1, p}$.
+Найдем производную функционала \eqref{eq:error} относительно прогноза $\tilde{A}$:
+\begin{align*}
+  \frac{\partial D_G^k}{\partial \tilde{A}} &= \frac{2(1-\mu)}{p(k+1)} \sum_{j=1}^{p}(\tilde{A} - y_{n_j}) -
+  \frac{2\mu k}{p(k+1)^2} \sum_{j=1}^{p}(\tilde{A} - L_k(X_{n_j})) \\
+  &= \frac{2}{p(k+1)} \sum_{j=1}^{p} \left((1 - \mu \frac{2k + 1}{k+1})\tilde{A}
+  - (1 - \mu)y_{n_j} + \frac{k \mu}{k+1}L_k(X_{n_j}) \right) \\
+\end{align*}
+Приравнивая производную к нулю, получаем оптимальный прогноз:
+\begin{equation} \label{eq:optim_value}
+  \tilde{A} = \sum_{j=1}^{p} \frac{(k+1)(1-\mu)y_{n_j} -\mu k L_k(X_{n_j})}{p(k + 1 - \mu (2k + 1))}
+\end{equation}
+
+Заметим, что в формулах \eqref{eq:error} и \eqref{eq:optim_value} используются $L_k(X)$, т.е., для построения $A_{k+1}(X)$ требуется хранить среднее предсказаний $A_1(X), \dots, A_{k}(X)$. Также формулы \eqref{eq:error} и \eqref{eq:optim_value} зависят от $k$. Следовательно, построение деревьев очередного дерева в ансамбле зависит от его номера и предсказаний всех предыдущих деревьев.
+
+Подводя итог, построение ансамбля $A_1(X), \dots, A_N(X)$ происходит следующим образом:
+
+% \allowdisplaybreaks
+\begin{algorithm}[H]
+\caption{Предложенный алгоритм}
+% \label{alg:rf}
+    \begin{algorithmic}[1]
+      \STATE Сгенерировать выборку~$\tilde X_1$ с помощью бутстрэпа
+      \STATE Построить решающее дерево~$A_1(x)$ по выборке~$\tilde X_1$, используя только среднеквадратичную ошибку
+      \STATE Вычислить $L_1(X) = A_1(X)$ для всех $X_1, \dots, X_m$
+      \FOR{$k = 2, \dots, N$}
+            \STATE Сгенерировать выборку~$\tilde X_k$ с помощью бутстрэпа
+            \STATE Построить решающее дерево~$A_k(x)$ по выборке~$\tilde X_k$, используя $L_{k-1}(X)$:
+                \begin{itemize}
+                    \item В каждой вершине ищется оптимальное разбиение относительно функционала \eqref{eq:error}
+                    \item Для вычисления значений в листе используется выражение \eqref{eq:optim_value}
+                \end{itemize}
+              
+            \STATE Вычислить $L_{k}(X) = \frac{1}{k} ((k-1)L_{k-1}(X) + A_k(X))$ для всех $X_1, \dots, X_m$
+        \ENDFOR
+        \STATE Вернуть композицию~$\mu_N(X) = \frac{1}{N} \sum_{k = 1}^{N} A_k(X)$
+    \end{algorithmic}
+\end{algorithm}
+
+Отметим, что в данном алгоритме при построении дерева используются и обычные способы увеличения дисперсии, описанные в \autoref{sec:random_forest}. Также используются параметры, ограничивающие глубину деревьев, такие как:
+\begin{itemize}
+  \item Максимальная глубина
+  \item Минимальное число объектов для разбиения вершины
+  \item Минимальное число объектов в листе
+\end{itemize}
 
 % \section{Introduction}
 % \lipsum[2]
