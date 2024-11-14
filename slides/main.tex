@@ -2,7 +2,8 @@
 
 \mode<presentation>
 {
-\usetheme{boxes}
+\usetheme{Madrid}
+\usecolortheme{dolphin}
 \beamertemplatenavigationsymbolsempty
 
 \setbeamertemplate{footline}[page number]
@@ -22,6 +23,10 @@
 \usepackage{mathtools}
 \usepackage{comment}
 \usepackage{multicol}
+
+\usepackage{svg}
+\usepackage{algorithm}
+\usepackage{algcompatible}
 
 \usepackage[all]{xy}
 
@@ -46,13 +51,15 @@
 
 \captionsetup[subfloat]{labelformat=empty}
 
+\graphicspath{{../figures/}}
+
 %----------------------------------------------------------------------------------------------------------
 
-\title[Пример слайдов по работе]{Пример слайдов по работе \\ курса}
-\author{И.\,О.\,Фамилия}
+\title[Разработка эффективной реализации методов, основанных на поиске оптимального баланса между дивергенцией и точностью аппроксимации]{Разработка эффективной реализации методов, основанных на поиске оптимального баланса между дивергенцией и точностью аппроксимации}
+\author{Д.\,Д.\,Аристархов}
 
-\institute[]{Московский физико-технический институт}
-\date[2022]{\small 10\;февраля\;2022\,г.}
+\institute[]{ВМК МГУ}
+\date[2024]{\small 15\;ноября\;2024\,г.}
 
 %---------------------------------------------------------------------------------------------------------
 \begin{document}
@@ -62,131 +69,206 @@
 \end{frame}
 
 %----------------------------------------------------------------------------------------------------------
-\section{Слайд об исследованиях}
-\begin{frame}{Слайд об исследованиях}
+\section{Постановка задачи}
+\begin{frame}{Постановка задачи}
 \bigskip
-Исследуется проблема \ldots.
-\begin{block}{Цель исследования~---}
-предложить метод \ldots.
+Дана выборка $S={(X_1, y_1), \dots, (X_m, y_m)}$, где $X_i$ --- вектор признакового описания объекта, $y_i$ --- метка объекта. Рассматривается задача регресии: $X_i~\in~\mathbb{R}^n, \  y_i \in \mathbb{R}$. Требуется построить ансамбль базовых алгоритмов \\$A_1(X), \dots, A_k(X)$, предсказывающих значения метки по вектору признаков.
+\end{frame}
+
+\section{Дисперсия ансамбля}
+\begin{frame}{Дисперсия ансамбля}
+Рассматриваем ошибку ансамбля $\mathcal{A}(x) = \frac{1}{k} \sum_{i}^{k} A_i(x)$
+\begin{block}{Разложение ошибки ансамбля}
+        \begin{align*}
+        &L(\mathcal{A}) = \underbrace{\mathbb{E}_{x, y} \Bigl[\bigl(y - \mathbb{E}[y | x] \bigr)^2\Bigr]}_{\text{Шум}}+
+        \underbrace{\mathbb{E}_{x, y} \Bigl[
+            \bigl(
+                \mathbb{E}_{X} \bigl[
+                    A_i(X)(x)
+                \bigr]
+                -
+                \mathbb{E}[y | x]
+            \bigr)^2
+        \Bigr]}_{\text{Смещение}} \\
+        &+\underbrace{\frac{1}{k}
+        \mathbb{E}_{x, y} \Bigl[
+            \mathbb{E}_{X} \Bigl[
+                \Bigl(
+                    A_i(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_i(X)(x)
+                    \bigr]
+                \Bigr)^2
+            \Bigr]
+        \Bigr]}_{\text{Дисперсия} \ A_i}
+        \\
+        &+
+        \underbrace{\frac{k(k-1)}{k^2}
+        \mathbb{E}_{x, y} \Bigl[
+            \mathbb{E}_{X} \Bigl[
+                \Bigl(
+                    A_i(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_i(X)(x)
+                    \bigr]
+                \Bigr) 
+                \Bigl(   
+                    A_j(X)(x)
+                    -
+                    \mathbb{E}_{X} \bigl[
+                        A_j(X)(x)
+                    \bigr]
+                \Bigr)
+            \Bigr]
+        \Bigr]}_{\text{Ковариация}\  A_i, A_j}
+    \end{align*}
 \end{block}
-\begin{block}{Требуется предложить}
+\end{frame}
+
+\begin{frame}{Дисперсия ансамбля}
+    \begin{itemize}
+        \item Шум --- свойство выборки, не зависит от модели
+        \item Смещение --- равно смещению базового алгоритма, поэтому берем базовые алгоритмы с маленьким смещением, например, глубокие деревья
+        \item Дисперсия $A_i$ --- уменьшается в $k$ раз при увеличении количества базовых алгоритмов
+        \item Ковариация $A_i, A_j$ --- ?
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Дисперсия ансамбля}
+    Для уменьшения ковариации используются следующие подходы:
+    \begin{itemize}
+        \item Бэггинг. Каждый алгоритм обучается на случайной подвыборке, сгенерированной из выборки с помощью бутстрэпа, т.е. выбираются $m$ объектов с возвращениями. Таким образом, в одной выборке некоторые объекты встретятся несколько раз, а некоторые — ни разу.
+        \item Рандомизация признаков. При построении очередного дерева в каждой вершине выбор наилучшего признака для разбиения происходит не из всех возможных признаков, а из случайно выбранной подвыборки. 
+    \end{itemize}
+\end{frame}
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+    Обозначим $L_k(X) = \frac{1}{k}\sum_{i = 1}^{k} A_i(X)$, $Q_k(X) = \frac{1}{k}\sum_{i = 1}^{k} A_i^2(X)$. Введем критерий, представляющие собой среднеквадратичную ошибку алгоритма и дисперсию прогнозов вычисляемых алгоритмов:
+\begin{block}{Критерий $\Phi_E$}
+    \begin{equation*}
+    \Phi_E(A_1(X), \dots, A_k(X)) = \frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (y_j - A_i(X_j))^2
+    \end{equation*}
+\end{block}
+\begin{block}{Критерий $\Phi_V$}
+    \begin{equation*}
+    \Phi_V(A_1(X), \dots, A_k(X)) = \frac{1}{mk} \sum_{i=1}^{k} \sum_{j=1}^{m} (L_k(X_j) - A_i(X_j))^2
+    \end{equation*}
+\end{block}
+
+\end{frame}
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+    При построении ансамбля предлагается предлагается явно минимизировать $\Phi_E$ и максимизировать $\Phi_V$. Данная задача может быть сведена к минимизации $\Phi_G$:
+\begin{block}{Критерий $\Phi_G$}
+    \begin{equation*}
+    \Phi_G = (1 - \mu) \Phi_E - \mu \Phi_V,
+\end{equation*}
+\end{block}
+    где $\mu \in [0, 1]$ является гиперпараметром, определяющим соотношение точности и разнородности прогнозов отдельных деревьев. 
+
+    Поскольку каждое дерево в ансамбле строится отдельно от других, необходимо получить критерий для построения очередного дерева. Обозначим через $D_E^k$ и $D_V^k$ изменение функционалов $\Phi_E$ и $\Phi_V$ при включении в ансамбль дополнительного алгоритма $A_{k+1}$. 
+\end{frame}
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+\begin{block}{Критерий $D_E^k$}
+    \begin{align*}
+    D_E^k &= \Phi_E(A_1(X), ..., A_{k+1}(X)) - \Phi_E(A_1(X), \dots, A_k(X)) \\
+    &= \frac{1}{m(k+1)}\sum_{j=1}^{m}(y_j - A_{k+1}(X_j))^2 - C_E,
+    \end{align*}
+    где $C_E$ не зависит от $A_{k+1}(X)$.
+\end{block}
+\begin{block}{Критерий $D_E^k$}
+    \begin{align*}
+    D_V^K &= \Phi_V(A_1(X), \dots, A_{k+1}(X))-\Phi_V(A_1(X), \dots, A_k(X)) \\
+    &= \frac{k}{m(k+1)^2} \sum_{j=1}^{m} (A_{k+1}^2(X_j) - 2L_k(X_j)A_{k+1}(X_j)) + C_V,
+    \end{align*}
+    где $C_V$ не зависит от $A_{k+1}(X)$.
+\end{block}
+\end{frame}
+
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+Объединяя эти выражения, получаем функционал, который необходимо минимизировать при построении очередного дерева $A_{k+1}(X)$:
+\begin{block}{Критерий $D_G^k$}
+\begin{align} \label{eq:error}
+  D_G^k &= (1 - \mu) D_E^k - \mu D_V^k = \\\
+  &= \frac{1-\mu}{m(k+1)} \sum_{j=1}^{m}(y_j - A_{k+1}(X_j))^2 \notag \\
+  &\text{\hspace{0.5cm}}-\frac{\mu k}{m(k+1)^2} \sum_{j=1}^{m} (A_{k+1}^2(X_j) - 2L_k(X_j)A_{k+1}(X_j)) + C_G, \notag
+\end{align} 
+где $C_G$ не зависит от $A_{k+1}(X)$.
+\end{block}
+\end{frame}
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+    Теперь рассмотрим вопрос оптимального значения в листе дерева $A_{k+1}(X)$. Пусть в лист попали объекты $(X_{n_1}, y_{n_1}), \dots, (X_{n_p}, y_{n_p})$. В листе алгоритм предсказывает одно значениe для всех объектов, попавших в этот лист: $A_{k+1}(X_{n_j}) \equiv \tilde{A}, \ j = \overline{1, p}$.
+    Найдем производную функционала \eqref{eq:error} относительно прогноза $\tilde{A}$:
+    \begin{align*}
+    \frac{\partial D_G^k}{\partial \tilde{A}} &= \frac{2(1-\mu)}{p(k+1)} \sum_{j=1}^{p}(\tilde{A} - y_{n_j}) -
+    \frac{2\mu k}{p(k+1)^2} \sum_{j=1}^{p}(\tilde{A} - L_k(X_{n_j})) \\
+    &= \frac{2}{p(k+1)} \sum_{j=1}^{p} \left((1 - \mu \frac{2k + 1}{k+1})\tilde{A}
+    - (1 - \mu)y_{n_j} + \frac{k \mu}{k+1}L_k(X_{n_j}) \right) \\
+    \end{align*}
+    Приравнивая производную к нулю, получаем оптимальный прогноз:
+    \begin{equation} \label{eq:optim_value}
+    \tilde{A} = \sum_{j=1}^{p} \frac{(k+1)(1-\mu)y_{n_j} -\mu k L_k(X_{n_j})}{p(k + 1 - \mu (2k + 1))}
+    \end{equation}
+\end{frame}
+
+\section{Предлагаемый метод}
+\begin{frame}{Предлагаемый метод}
+\begin{algorithm}[H]
+\caption{Предложенный алгоритм}
+% \label{alg:rf}
+    \begin{algorithmic}[1]
+      \STATE Сгенерировать выборку~$\tilde X_1$ с помощью бутстрэпа
+      \STATE Построить решающее дерево~$A_1(x)$ по выборке~$\tilde X_1$, используя только среднеквадратичную ошибку
+      \STATE Вычислить $L_1(X) = A_1(X)$ для всех $X_1, \dots, X_m$
+      \FOR{$k = 2, \dots, N$}
+            \STATE Сгенерировать выборку~$\tilde X_k$ с помощью бутстрэпа
+            \STATE Построить решающее дерево~$A_k(x)$ по выборке~$\tilde X_k$, используя $L_{k-1}(X)$:
+                \begin{itemize}
+                    \item В каждой вершине ищется оптимальное разбиение относительно функционала \eqref{eq:error}
+                    \item Для вычисления значений в листе используется выражение \eqref{eq:optim_value}
+                \end{itemize}
+              
+            \STATE Вычислить $L_{k}(X) = \frac{1}{k} ((k-1)L_{k-1}(X) + A_k(X))$ для всех $X_1, \dots, X_m$
+        \ENDFOR
+        \STATE Вернуть композицию~$\mu_N(X) = \frac{1}{N} \sum_{k = 1}^{N} A_k(X)$
+    \end{algorithmic}
+\end{algorithm}
+\end{frame}
+
+\section{Эксперименты}
+\begin{frame}{Эксперименты}
 \justifying
-\begin{enumerate}[1)]
-\item метод \ldots,
-\item метод \ldots,
-\item метод \ldots.
-\end{enumerate}
-\end{block}
-\begin{block}{Решение}
-Для \ldots.
-\end{block}
-\end{frame}
-
-%---------------------------------------------------------------------------------------------------------
-\section{Постановка задачи \ldots}
-\begin{frame}{Постановка задачи \ldots}
-Заданы
-\begin{enumerate}[1)]
-    \item признаки \ldots,
-    \item целевая переменная \ldots,
-    \item \ldots.
-\end{enumerate}
-
-\ldots
-
-\bigskip
-
-Требуется выбрать модель \ldots из множества
-\[
-	\mathfrak{G} = \left\{\mathbf{g}| \mathbf{g}:\mathbb{R}^{n} \to \mathbb{Y}^\prime\right\}.
-\]
-Оптимизационная задача \ldots:
-\[
-	\mathbf{g} = \arg\min_{\mathbf{g} \in \mathfrak{G}} \mathcal{L}\bigr(\ldots\bigr),
-\]
-где $\mathcal{L}$~--- функция ошибки.
-
-\bigskip
-\footnotetext[1]{\textit{Lopez-Paz D., Bottou L., Scholkopf B., Vapnik V.} Unifying distillation and privileged information // ICLR, 2016.}
-\footnotetext[2]{\textit{Hinton G., Vinyals O., Dean J.} Distilling the knowledge in a neural network // NIPS, 2015.}
-\end{frame}
-
-%----------------------------------------------------------------------------------------------------------
-\section{Предложенный метод \ldots}
-\begin{frame}{Предложенный метод \ldots}
-~\\[-1mm]
-Заданы
-\begin{enumerate}[1)]
-	\item \ldots,
-	\item \ldots.
-\end{enumerate}
-
-\medskip
-Параметрические семейства:
-\[
-\setlength\abovedisplayskip{0pt}
-\mathfrak{F} = \left\{\mathbf{f}| \mathbf{f} = \text{softmax}\bigr(\mathbf{v}\bigr(\mathbf{x}\bigr)/T\bigr), \quad \mathbf{v}: \mathbb{R}^{n} \to \mathbb{R}^K \right\},
-\]
-\[
-\mathfrak{G} = \left\{\mathbf{g}| \mathbf{g} = \text{softmax}\bigr(\mathbf{z}\bigr(\mathbf{x}\bigr)/T\bigr), \quad \mathbf{z}: \mathbb{R}^n \to \mathbb{R}^K \right\},
-\]
-где~\ldots.
-
-\medskip
-Функция ошибки
-\[
-\setlength\abovedisplayskip{0pt}
-\begin{aligned}
-   \mathcal{L}\bigr(\mathbf{g}\bigr) = &-\sum_{i=1}^{m}\underbrace{{\sum_{k=1}^{K}y^k_i\log\mathbf{g}\bigr(\mathbf{x}_i\bigr)\bigr|_{T=1}}}_{\text{исходная функция потерь}}- \sum_{i=1}^{m}\underbrace{{\sum_{k=1}^{K}\mathbf{f}\bigr(\mathbf{x}_i\bigr)\bigr|_{T=T_0}\log\mathbf{g}\bigr(\mathbf{x}_i\bigr)\bigr|_{T=T_0}}}_{\text{слагаемое дистилляции}},
-\end{aligned}
-\setlength\belowdisplayskip{0pt}
-\]
-где~\ldots.
-
-Оптимальная модель выбирается из класса,
-$\hat{\mathbf{g}} = \arg\min\limits_{\mathbf{g} \in \mathfrak{G}_{\text{cl}}} \mathcal{L}\bigr(\mathbf{g}\bigr).$
-\end{frame}
-
-%----------------------------------------------------------------------------------------------------------
-\section{Анализ предложенного метода \ldots}
-\begin{frame}{Анализ предложенного метода \ldots}
-\justifying
-
-На графике показана зависимость значения параметров$w_i$ в зависимости от параметра~$l_1$-регуляризации~$C$.
-\begin{figure}[h!]
-\includegraphics[width=0.45\textwidth]{../figures/log_reg_cs_exp.eps}
-\includegraphics[width=0.45\textwidth]{../figures/log_reg_cs_exp.eps}
+\begin{figure}[h]
+  \centering
+  \includesvg[width=0.49\textwidth]{california_housing.svg}
+  \includesvg[width=0.49\textwidth]{synthetic.svg}
 \end{figure}
-
-С увеличением параметра регуляризации~$C$ число ненулевых параметров~$w_i$ уменьшается.
-
 \end{frame}
 
-%----------------------------------------------------------------------------------------------------------
+\section{Эксперименты}
+\begin{frame}{Эксперименты}
+\justifying
+\begin{figure}[h]
+  \centering
+  \includesvg[width=0.49\textwidth]{diabetes.svg}
+  \includesvg[width=0.49\textwidth]{boston.svg}
+\end{figure}
+\end{frame}
+
 \section{Выводы}
 \begin{frame}{Выводы}
 \justifying
-	\begin{enumerate}
-	\justifying
-	    \item Предложен \ldots.
-        \item Доказаны теоремы \ldots, 
-        \begin{itemize}
-            \item[---] \ldots,
-            \item[---] \ldots.
-        \end{itemize}
-        \item Предложен метод \ldots
-        \begin{itemize}
-            \item[---] \ldots,
-            \item[---] \ldots.
-        \end{itemize}
-        \item Предложены методы \ldots
-        \begin{itemize}
-            \item[---] \ldots,
-            \item[---] \ldots.
-        \end{itemize}
-        \item Предложена вероятностная интерпретации \ldots.
-	\end{enumerate}
+В работе был предложен новый метод ансамблирования деревьев, а также его теоретическое обоснование. Были проведены эксперименты на реальных и синтетических данных, которые показали, что метод достигает лучшего качества, чем обычный случайный лес. 
 \end{frame}
-%----------------------------------------------------------------------------------------------------------
 
 \end{document} 
